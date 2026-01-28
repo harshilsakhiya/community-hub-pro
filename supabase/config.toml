@@ -1,13 +1,1 @@
 project_id = "nsvuyhblbvbijxmqjndt"
-
-[functions.generate-bills]
-verify_jwt = false
-
-[functions.visitor-checkin]
-verify_jwt = false
-
-[functions.complaint-handler]
-verify_jwt = false
-
-[functions.dashboard-stats]
-verify_jwt = false
