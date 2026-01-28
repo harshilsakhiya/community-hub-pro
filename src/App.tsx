@@ -29,7 +29,7 @@ const App = () => (
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
           
-          {/* Dashboard Routes */}
+          {/* Dashboard Routes (no auth protection) */}
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="billing" element={<Billing />} />
