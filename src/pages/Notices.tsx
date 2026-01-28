@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Bell,
@@ -9,58 +10,35 @@ import {
   Info,
   Pin,
   MoreVertical,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-const notices = [
-  {
-    id: 1,
-    title: "Annual General Meeting - February 2025",
-    content:
-      "The AGM for the financial year 2024-25 will be held on February 15, 2025 at 6:00 PM in the community hall. All members are requested to attend.",
-    type: "meeting",
-    date: "Jan 28, 2025",
-    author: "Society Secretary",
-    pinned: true,
-    urgent: false,
-  },
-  {
-    id: 2,
-    title: "Water Supply Interruption - Maintenance Work",
-    content:
-      "Water supply will be interrupted on January 30, 2025 from 10:00 AM to 4:00 PM for tank cleaning. Kindly store sufficient water.",
-    type: "maintenance",
-    date: "Jan 27, 2025",
-    author: "Facility Manager",
-    pinned: true,
-    urgent: true,
-  },
-  {
-    id: 3,
-    title: "Holi Celebration - Save the Date",
-    content:
-      "Join us for the Holi celebration on March 14, 2025. Activities include music, dance, and organic colors. Registration open at the office.",
-    type: "event",
-    date: "Jan 25, 2025",
-    author: "Cultural Committee",
-    pinned: false,
-    urgent: false,
-  },
-  {
-    id: 4,
-    title: "New Parking Guidelines",
-    content:
-      "Please note the updated parking guidelines effective from February 1, 2025. Two-wheelers should be parked only in designated areas.",
-    type: "announcement",
-    date: "Jan 22, 2025",
-    author: "Managing Committee",
-    pinned: false,
-    urgent: false,
-  },
-];
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useNotices, useCreateNotice, useToggleNoticePin } from "@/hooks/useSupabaseData";
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -89,6 +67,42 @@ const getTypeColor = (type: string) => {
 };
 
 export default function Notices() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newNotice, setNewNotice] = useState({
+    title: "",
+    content: "",
+    category: "general",
+    priority: "normal",
+  });
+
+  const { data: notices, isLoading: noticesLoading } = useNotices();
+  const createNoticeMutation = useCreateNotice();
+  const togglePinMutation = useToggleNoticePin();
+
+  const filteredNotices = notices?.filter(notice =>
+    notice.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    notice.content.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNotice.title || !newNotice.content) return;
+    
+    await createNoticeMutation.mutateAsync(newNotice);
+    setIsDialogOpen(false);
+    setNewNotice({
+      title: "",
+      content: "",
+      category: "general",
+      priority: "normal",
+    });
+  };
+
+  const handleTogglePin = (noticeId: string, isPinned: boolean) => {
+    togglePinMutation.mutate({ noticeId, isPinned });
+  };
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -103,10 +117,84 @@ export default function Notices() {
             Announcements and updates for all residents
           </p>
         </div>
-        <Button variant="default">
-          <Plus className="w-4 h-4 mr-2" />
-          Post Notice
-        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="default">
+              <Plus className="w-4 h-4 mr-2" />
+              Post Notice
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Post New Notice</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  value={newNotice.title}
+                  onChange={(e) => setNewNotice({ ...newNotice, title: e.target.value })}
+                  placeholder="Notice title"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="content">Content</Label>
+                <Textarea
+                  id="content"
+                  value={newNotice.content}
+                  onChange={(e) => setNewNotice({ ...newNotice, content: e.target.value })}
+                  placeholder="Notice content..."
+                  rows={4}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select
+                    value={newNotice.category}
+                    onValueChange={(value) => setNewNotice({ ...newNotice, category: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="general">General</SelectItem>
+                      <SelectItem value="meeting">Meeting</SelectItem>
+                      <SelectItem value="event">Event</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                      <SelectItem value="announcement">Announcement</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Priority</Label>
+                  <Select
+                    value={newNotice.priority}
+                    onValueChange={(value) => setNewNotice({ ...newNotice, priority: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button type="submit" className="w-full" disabled={createNoticeMutation.isPending}>
+                {createNoticeMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                Post Notice
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </motion.div>
 
       {/* Search and Filter */}
@@ -118,7 +206,12 @@ export default function Notices() {
       >
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input placeholder="Search notices..." className="pl-12 h-12" />
+          <Input 
+            placeholder="Search notices..." 
+            className="pl-12 h-12"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="lg">
@@ -140,59 +233,79 @@ export default function Notices() {
         transition={{ delay: 0.2 }}
         className="space-y-4"
       >
-        {notices.map((notice, index) => {
-          const TypeIcon = getTypeIcon(notice.type);
-          return (
-            <motion.div
-              key={notice.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 * index }}
-            >
-              <Card
-                className={`card-interactive ${
-                  notice.urgent ? "border-l-4 border-l-destructive" : ""
-                }`}
+        {noticesLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-accent" />
+          </div>
+        ) : filteredNotices && filteredNotices.length > 0 ? (
+          filteredNotices.map((notice, index) => {
+            const TypeIcon = getTypeIcon(notice.category);
+            const isUrgent = notice.priority === 'urgent';
+            return (
+              <motion.div
+                key={notice.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 * index }}
               >
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className={`p-3 rounded-xl ${getTypeColor(notice.type)}`}>
-                      <TypeIcon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-4 mb-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-lg">{notice.title}</h3>
-                          {notice.pinned && (
-                            <Pin className="w-4 h-4 text-accent" />
-                          )}
-                          {notice.urgent && (
-                            <Badge variant="destructive" className="text-xs">
-                              Urgent
-                            </Badge>
-                          )}
+                <Card
+                  className={`card-interactive ${
+                    isUrgent ? "border-l-4 border-l-destructive" : ""
+                  }`}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className={`p-3 rounded-xl ${getTypeColor(notice.category)}`}>
+                        <TypeIcon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold text-lg">{notice.title}</h3>
+                            {notice.is_pinned && (
+                              <Pin className="w-4 h-4 text-accent" />
+                            )}
+                            {isUrgent && (
+                              <Badge variant="destructive" className="text-xs">
+                                Urgent
+                              </Badge>
+                            )}
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="shrink-0">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleTogglePin(notice.id, notice.is_pinned)}>
+                                {notice.is_pinned ? 'Unpin' : 'Pin'} Notice
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                        <Button variant="ghost" size="icon" className="shrink-0">
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <p className="text-muted-foreground mb-4 line-clamp-2">
-                        {notice.content}
-                      </p>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          {notice.date}
-                        </span>
-                        <span>By {notice.author}</span>
+                        <p className="text-muted-foreground mb-4 line-clamp-2">
+                          {notice.content}
+                        </p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            {new Date(notice.publish_date).toLocaleDateString()}
+                          </span>
+                          <span className="capitalize">{notice.category}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            No notices found
+          </div>
+        )}
       </motion.div>
     </div>
   );

@@ -1,14 +1,15 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   CreditCard,
   Download,
   Search,
   Filter,
-  ChevronDown,
   CheckCircle2,
   Clock,
   AlertCircle,
   Send,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,81 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-
-const bills = [
-  {
-    id: "INV-001",
-    unit: "A-201",
-    resident: "Rajesh Kumar",
-    amount: 5500,
-    dueDate: "2025-02-05",
-    status: "paid",
-    paidDate: "2025-01-25",
-  },
-  {
-    id: "INV-002",
-    unit: "A-202",
-    resident: "Priya Sharma",
-    amount: 5500,
-    dueDate: "2025-02-05",
-    status: "pending",
-    paidDate: null,
-  },
-  {
-    id: "INV-003",
-    unit: "B-101",
-    resident: "Amit Patel",
-    amount: 6200,
-    dueDate: "2025-02-05",
-    status: "overdue",
-    paidDate: null,
-  },
-  {
-    id: "INV-004",
-    unit: "B-102",
-    resident: "Sneha Gupta",
-    amount: 6200,
-    dueDate: "2025-02-05",
-    status: "paid",
-    paidDate: "2025-01-20",
-  },
-  {
-    id: "INV-005",
-    unit: "C-301",
-    resident: "Vikram Singh",
-    amount: 7000,
-    dueDate: "2025-02-05",
-    status: "pending",
-    paidDate: null,
-  },
-];
-
-const stats = [
-  {
-    title: "Total Billed",
-    value: "₹14,20,000",
-    icon: CreditCard,
-    color: "bg-accent/10 text-accent",
-  },
-  {
-    title: "Collected",
-    value: "₹12,45,000",
-    icon: CheckCircle2,
-    color: "bg-success/10 text-success",
-  },
-  {
-    title: "Pending",
-    value: "₹1,75,000",
-    icon: Clock,
-    color: "bg-warning/10 text-warning",
-  },
-  {
-    title: "Overdue",
-    value: "₹62,000",
-    icon: AlertCircle,
-    color: "bg-destructive/10 text-destructive",
-  },
-];
+import { useBills, useBillStats, useMarkBillPaid } from "@/hooks/useSupabaseData";
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -112,6 +39,48 @@ const getStatusBadge = (status: string) => {
 };
 
 export default function Billing() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const { data: bills, isLoading: billsLoading } = useBills();
+  const { data: stats, isLoading: statsLoading } = useBillStats();
+  const markPaidMutation = useMarkBillPaid();
+
+  const filteredBills = bills?.filter(bill => 
+    bill.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    bill.units?.unit_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    bill.units?.block.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const statCards = [
+    {
+      title: "Total Billed",
+      value: `₹${(stats?.totalBilled || 0).toLocaleString()}`,
+      icon: CreditCard,
+      color: "bg-accent/10 text-accent",
+    },
+    {
+      title: "Collected",
+      value: `₹${(stats?.collected || 0).toLocaleString()}`,
+      icon: CheckCircle2,
+      color: "bg-success/10 text-success",
+    },
+    {
+      title: "Pending",
+      value: `₹${(stats?.pending || 0).toLocaleString()}`,
+      icon: Clock,
+      color: "bg-warning/10 text-warning",
+    },
+    {
+      title: "Overdue",
+      value: `₹${(stats?.overdue || 0).toLocaleString()}`,
+      icon: AlertCircle,
+      color: "bg-destructive/10 text-destructive",
+    },
+  ];
+
+  const handleMarkPaid = (billId: string) => {
+    markPaidMutation.mutate({ billId, paymentMethod: 'cash' });
+  };
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -145,7 +114,7 @@ export default function Billing() {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
       >
-        {stats.map((stat, index) => (
+        {statCards.map((stat, index) => (
           <Card key={index} className="card-interactive">
             <CardContent className="p-5">
               <div className="flex items-center gap-4">
@@ -154,7 +123,9 @@ export default function Billing() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-xl font-bold">{stat.value}</p>
+                  <p className="text-xl font-bold">
+                    {statsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : stat.value}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -170,11 +141,16 @@ export default function Billing() {
       >
         <Card>
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <CardTitle className="text-lg">January 2025 Bills</CardTitle>
+            <CardTitle className="text-lg">Maintenance Bills</CardTitle>
             <div className="flex gap-3">
               <div className="relative flex-1 sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Search by unit or name..." className="pl-10" />
+                <Input 
+                  placeholder="Search by unit or invoice..." 
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
               <Button variant="outline" size="icon">
                 <Filter className="w-4 h-4" />
@@ -182,47 +158,71 @@ export default function Billing() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead>Resident</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {bills.map((bill) => (
-                    <TableRow key={bill.id} className="table-row-interactive">
-                      <TableCell className="font-medium">{bill.id}</TableCell>
-                      <TableCell>{bill.unit}</TableCell>
-                      <TableCell>{bill.resident}</TableCell>
-                      <TableCell className="text-right font-semibold">
-                        ₹{bill.amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell>{new Date(bill.dueDate).toLocaleDateString()}</TableCell>
-                      <TableCell>{getStatusBadge(bill.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button variant="ghost" size="sm">
-                            <Download className="w-4 h-4" />
-                          </Button>
-                          {bill.status !== "paid" && (
-                            <Button variant="ghost" size="sm">
-                              <Send className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
+            {billsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-accent" />
+              </div>
+            ) : filteredBills && filteredBills.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Invoice</TableHead>
+                      <TableHead>Unit</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredBills.map((bill) => (
+                      <TableRow key={bill.id} className="table-row-interactive">
+                        <TableCell className="font-medium">{bill.invoice_number}</TableCell>
+                        <TableCell>
+                          {bill.units ? `${bill.units.block}-${bill.units.unit_number}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          ₹{(Number(bill.amount) + Number(bill.late_fee || 0)).toLocaleString()}
+                        </TableCell>
+                        <TableCell>{new Date(bill.due_date).toLocaleDateString()}</TableCell>
+                        <TableCell>{getStatusBadge(bill.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button variant="ghost" size="sm">
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            {bill.status !== "paid" && (
+                              <>
+                                <Button variant="ghost" size="sm">
+                                  <Send className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleMarkPaid(bill.id)}
+                                  disabled={markPaidMutation.isPending}
+                                >
+                                  {markPaidMutation.isPending ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                No bills found
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>

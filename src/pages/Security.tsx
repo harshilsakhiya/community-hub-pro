@@ -2,52 +2,16 @@ import { motion } from "framer-motion";
 import {
   Shield,
   QrCode,
-  Camera,
   AlertTriangle,
-  CheckCircle,
   Users,
   Car,
   Clock,
-  Bell,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-const securityLogs = [
-  {
-    id: 1,
-    event: "Visitor Entry",
-    details: "Rahul Mehta entered via Gate 1",
-    unit: "A-201",
-    time: "10:30 AM",
-    type: "entry",
-  },
-  {
-    id: 2,
-    event: "Delivery Exit",
-    details: "Amazon delivery exited via Gate 2",
-    unit: "B-102",
-    time: "11:25 AM",
-    type: "exit",
-  },
-  {
-    id: 3,
-    event: "Vehicle Entry",
-    details: "MH 12 AB 1234 - Owner vehicle",
-    unit: "C-301",
-    time: "11:45 AM",
-    type: "vehicle",
-  },
-  {
-    id: 4,
-    event: "Alert",
-    details: "Unauthorized parking attempt in Block D",
-    unit: "-",
-    time: "12:00 PM",
-    type: "alert",
-  },
-];
+import { useVisitors, useVisitorStats, useVehicles } from "@/hooks/useSupabaseData";
 
 const quickActions = [
   { icon: QrCode, label: "Scan QR Code", color: "bg-accent" },
@@ -56,13 +20,33 @@ const quickActions = [
   { icon: AlertTriangle, label: "Report Issue", color: "bg-destructive" },
 ];
 
-const stats = [
-  { label: "Total Entries", value: "28", icon: Users },
-  { label: "Vehicles In", value: "45", icon: Car },
-  { label: "Active Alerts", value: "2", icon: AlertTriangle },
-];
-
 export default function Security() {
+  const { data: visitors, isLoading: visitorsLoading } = useVisitors();
+  const { data: stats, isLoading: statsLoading } = useVisitorStats();
+  const { data: vehicles, isLoading: vehiclesLoading } = useVehicles();
+
+  const statCards = [
+    { label: "Total Entries", value: stats?.todayEntries?.toString() || "0", icon: Users },
+    { label: "Vehicles In", value: vehicles?.length?.toString() || "0", icon: Car },
+    { label: "Active Alerts", value: "0", icon: AlertTriangle },
+  ];
+
+  // Create security logs from visitors
+  const securityLogs = visitors?.slice(0, 5).map(visitor => ({
+    id: visitor.id,
+    event: visitor.check_out_time ? "Visitor Exit" : "Visitor Entry",
+    details: `${visitor.name} ${visitor.check_out_time ? 'exited' : 'entered'}`,
+    unit: visitor.units ? `${visitor.units.block}-${visitor.units.unit_number}` : "-",
+    time: visitor.check_out_time 
+      ? new Date(visitor.check_out_time).toLocaleTimeString()
+      : visitor.check_in_time 
+        ? new Date(visitor.check_in_time).toLocaleTimeString()
+        : "-",
+    type: visitor.check_out_time ? "exit" : "entry",
+  })) || [];
+
+  const isLoading = visitorsLoading || statsLoading || vehiclesLoading;
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -113,7 +97,7 @@ export default function Security() {
         transition={{ delay: 0.15 }}
         className="grid grid-cols-3 gap-4 mb-8"
       >
-        {stats.map((stat, index) => (
+        {statCards.map((stat, index) => (
           <Card key={index} className="card-interactive">
             <CardContent className="p-5 flex items-center gap-4">
               <div className="p-3 rounded-xl bg-muted">
@@ -121,7 +105,9 @@ export default function Security() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">{stat.label}</p>
-                <p className="text-2xl font-bold">{stat.value}</p>
+                <p className="text-2xl font-bold">
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : stat.value}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -146,45 +132,53 @@ export default function Security() {
             </Badge>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {securityLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                >
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : securityLogs.length > 0 ? (
+              <div className="space-y-3">
+                {securityLogs.map((log) => (
                   <div
-                    className={`p-2 rounded-lg ${
-                      log.type === "alert"
-                        ? "bg-destructive/10 text-destructive"
-                        : log.type === "entry"
-                        ? "bg-success/10 text-success"
-                        : log.type === "exit"
-                        ? "bg-warning/10 text-warning"
-                        : "bg-accent/10 text-accent"
-                    }`}
+                    key={log.id}
+                    className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                   >
-                    {log.type === "alert" ? (
-                      <AlertTriangle className="w-4 h-4" />
-                    ) : log.type === "vehicle" ? (
-                      <Car className="w-4 h-4" />
-                    ) : (
-                      <Users className="w-4 h-4" />
+                    <div
+                      className={`p-2 rounded-lg ${
+                        log.type === "alert"
+                          ? "bg-destructive/10 text-destructive"
+                          : log.type === "entry"
+                          ? "bg-success/10 text-success"
+                          : log.type === "exit"
+                          ? "bg-warning/10 text-warning"
+                          : "bg-accent/10 text-accent"
+                      }`}
+                    >
+                      {log.type === "alert" ? (
+                        <AlertTriangle className="w-4 h-4" />
+                      ) : log.type === "vehicle" ? (
+                        <Car className="w-4 h-4" />
+                      ) : (
+                        <Users className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">{log.event}</p>
+                      <p className="text-sm text-muted-foreground">{log.details}</p>
+                    </div>
+                    {log.unit !== "-" && (
+                      <Badge variant="outline">{log.unit}</Badge>
                     )}
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      {log.time}
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{log.event}</p>
-                    <p className="text-sm text-muted-foreground">{log.details}</p>
-                  </div>
-                  {log.unit !== "-" && (
-                    <Badge variant="outline">{log.unit}</Badge>
-                  )}
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    {log.time}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No recent activity</p>
+            )}
           </CardContent>
         </Card>
       </motion.div>

@@ -195,6 +195,48 @@ export type Database = {
           },
         ]
       }
+      notices: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          created_by: string
+          expiry_date: string | null
+          id: string
+          is_pinned: boolean | null
+          priority: string
+          publish_date: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          content: string
+          created_at?: string
+          created_by: string
+          expiry_date?: string | null
+          id?: string
+          is_pinned?: boolean | null
+          priority?: string
+          publish_date?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          expiry_date?: string | null
+          id?: string
+          is_pinned?: boolean | null
+          priority?: string
+          publish_date?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -281,6 +323,59 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vehicles: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          make: string | null
+          model: string | null
+          owner_id: string
+          parking_slot: string | null
+          unit_id: string
+          updated_at: string
+          vehicle_number: string
+          vehicle_type: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          make?: string | null
+          model?: string | null
+          owner_id: string
+          parking_slot?: string | null
+          unit_id: string
+          updated_at?: string
+          vehicle_number: string
+          vehicle_type?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          make?: string | null
+          model?: string | null
+          owner_id?: string
+          parking_slot?: string | null
+          unit_id?: string
+          updated_at?: string
+          vehicle_number?: string
+          vehicle_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       visitors: {
         Row: {
