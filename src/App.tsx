@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import DashboardLayout from "./components/layout/DashboardLayout";
@@ -20,32 +21,34 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Landing />} />
-          <Route path="/auth" element={<Auth />} />
-          
-          {/* Dashboard Routes (no auth protection) */}
-          <Route path="/dashboard" element={<DashboardLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="billing" element={<Billing />} />
-            <Route path="visitors" element={<Visitors />} />
-            <Route path="notices" element={<Notices />} />
-            <Route path="complaints" element={<Complaints />} />
-            <Route path="security" element={<Security />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="settings" element={<SettingsPage />} />
-          </Route>
-          
-          {/* Catch-all */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Landing />} />
+            <Route path="/auth" element={<Auth />} />
+            
+            {/* Dashboard Routes */}
+            <Route path="/dashboard" element={<DashboardLayout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="billing" element={<Billing />} />
+              <Route path="visitors" element={<Visitors />} />
+              <Route path="notices" element={<Notices />} />
+              <Route path="complaints" element={<Complaints />} />
+              <Route path="security" element={<Security />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
+            
+            {/* Catch-all */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
