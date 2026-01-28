@@ -36,6 +36,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+  { icon: Building2, label: "Society", path: "/dashboard/society", roles: ["admin"] },
   { icon: Home, label: "Buildings", path: "/dashboard/buildings", roles: ["admin", "committee_member"] },
   { icon: Users, label: "Residents", path: "/dashboard/residents", roles: ["admin", "committee_member"] },
   { icon: CreditCard, label: "Billing", path: "/dashboard/billing" },

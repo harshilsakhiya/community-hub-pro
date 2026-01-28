@@ -25,6 +25,7 @@ import Security from "./pages/Security";
 import Reports from "./pages/Reports";
 import SettingsPage from "./pages/Settings";
 import Profile from "./pages/Profile";
+import SocietyManagement from "./pages/SocietyManagement";
 
 // Auth components
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -47,6 +48,7 @@ const App = () => (
             {/* Protected Dashboard Routes */}
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<Dashboard />} />
+              <Route path="society" element={<SocietyManagement />} />
               <Route path="buildings" element={<Buildings />} />
               <Route path="residents" element={<Residents />} />
               <Route path="billing" element={<Billing />} />

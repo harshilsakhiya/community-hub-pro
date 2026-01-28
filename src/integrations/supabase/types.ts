@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          society_id: string | null
           total_floors: number | null
           updated_at: string
         }
@@ -28,6 +29,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          society_id?: string | null
           total_floors?: number | null
           updated_at?: string
         }
@@ -36,10 +38,19 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          society_id?: string | null
           total_floors?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "buildings_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       complaints: {
         Row: {
@@ -297,6 +308,72 @@ export type Database = {
         }
         Relationships: []
       }
+      societies: {
+        Row: {
+          address: string | null
+          admin_id: string | null
+          city: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          late_fee_percentage: number | null
+          logo_url: string | null
+          maintenance_amount: number | null
+          maintenance_due_day: number | null
+          name: string
+          pincode: string
+          registration_number: string | null
+          state: string
+          total_buildings: number | null
+          total_units: number | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          admin_id?: string | null
+          city: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          late_fee_percentage?: number | null
+          logo_url?: string | null
+          maintenance_amount?: number | null
+          maintenance_due_day?: number | null
+          name: string
+          pincode: string
+          registration_number?: string | null
+          state: string
+          total_buildings?: number | null
+          total_units?: number | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          admin_id?: string | null
+          city?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          late_fee_percentage?: number | null
+          logo_url?: string | null
+          maintenance_amount?: number | null
+          maintenance_due_day?: number | null
+          name?: string
+          pincode?: string
+          registration_number?: string | null
+          state?: string
+          total_buildings?: number | null
+          total_units?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       units: {
         Row: {
           area_sqft: number | null
@@ -306,8 +383,13 @@ export type Database = {
           floor_number: number | null
           id: string
           is_occupied: boolean | null
+          move_in_date: string | null
+          move_out_date: string | null
+          occupancy_type: string | null
           owner_id: string | null
+          resident_id: string | null
           unit_number: string
+          unit_type: string | null
           updated_at: string
           wing_id: string | null
         }
@@ -319,8 +401,13 @@ export type Database = {
           floor_number?: number | null
           id?: string
           is_occupied?: boolean | null
+          move_in_date?: string | null
+          move_out_date?: string | null
+          occupancy_type?: string | null
           owner_id?: string | null
+          resident_id?: string | null
           unit_number: string
+          unit_type?: string | null
           updated_at?: string
           wing_id?: string | null
         }
@@ -332,8 +419,13 @@ export type Database = {
           floor_number?: number | null
           id?: string
           is_occupied?: boolean | null
+          move_in_date?: string | null
+          move_out_date?: string | null
+          occupancy_type?: string | null
           owner_id?: string | null
+          resident_id?: string | null
           unit_number?: string
+          unit_type?: string | null
           updated_at?: string
           wing_id?: string | null
         }
