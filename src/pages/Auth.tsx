@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Building2, Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff } from "lucide-react";
@@ -14,7 +14,7 @@ export default function Auth() {
   const defaultTab = searchParams.get("tab") === "signup" ? "signup" : "login";
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login, signup, isAuthenticated, loading } = useAuth();
   
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,6 +29,13 @@ export default function Auth() {
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate("/dashboard");
+    }
+  }, [isAuthenticated, loading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,19 +64,34 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
-      // For demo - show success message
-      // In production, connect to authAPI.register()
+      const fullName = `${firstName} ${lastName}`.trim();
+      await signup(signupEmail, signupPassword, fullName, signupPhone);
       toast({
         title: "Account created!",
-        description: "Please check your phone for OTP verification.",
+        description: "You can now sign in with your credentials.",
       });
-      // Switch to login tab
+      // Clear form and switch to login
+      setFirstName("");
+      setLastName("");
+      setSignupEmail("");
+      setSignupPhone("");
+      setSignupPassword("");
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Signup failed",
-        description: error instanceof Error ? error.message : "Could not create account",
-      });
+      const errorMessage = error instanceof Error ? error.message : "Could not create account";
+      // Handle specific error cases
+      if (errorMessage.includes("already registered")) {
+        toast({
+          variant: "destructive",
+          title: "Account exists",
+          description: "This email is already registered. Please sign in instead.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Signup failed",
+          description: errorMessage,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -158,9 +180,6 @@ export default function Auth() {
                   <ArrowRight className="w-4 h-4" />
                 </Button>
 
-                <div className="text-center text-sm text-muted-foreground">
-                  Demo credentials: admin@demo.com / password123
-                </div>
               </form>
             </TabsContent>
 
