@@ -16,6 +16,7 @@ import Complaints from "./pages/Complaints";
 import Security from "./pages/Security";
 import Reports from "./pages/Reports";
 import SettingsPage from "./pages/Settings";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="security" element={<Security />} />
               <Route path="reports" element={<Reports />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="profile" element={<Profile />} />
             </Route>
             
             {/* Catch-all */}

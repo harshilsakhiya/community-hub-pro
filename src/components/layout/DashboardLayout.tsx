@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation, Outlet } from "react-router-dom";
+import { Link, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Building2,
@@ -15,9 +15,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -34,8 +37,28 @@ export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout, user } = useAuth();
+  const { toast } = useToast();
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+      navigate("/");
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to logout. Please try again.",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen flex w-full bg-background">
@@ -113,11 +136,28 @@ export default function DashboardLayout() {
         </nav>
 
         {/* Bottom Section */}
-        <div className="p-3 border-t border-sidebar-border">
-          <button
+        <div className="p-3 border-t border-sidebar-border space-y-1">
+          {/* Profile Link */}
+          <Link
+            to="/dashboard/profile"
+            onClick={() => setMobileOpen(false)}
             className={cn(
               "flex items-center gap-3 w-full px-3 py-3 rounded-lg transition-colors",
-              "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              isActive("/dashboard/profile")
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <User className={cn("w-5 h-5 flex-shrink-0", collapsed && "mx-auto")} />
+            {!collapsed && <span className="font-medium">My Profile</span>}
+          </Link>
+          
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            className={cn(
+              "flex items-center gap-3 w-full px-3 py-3 rounded-lg transition-colors",
+              "text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive"
             )}
           >
             <LogOut className={cn("w-5 h-5 flex-shrink-0", collapsed && "mx-auto")} />
