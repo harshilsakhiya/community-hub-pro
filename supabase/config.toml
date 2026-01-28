@@ -1,1 +1,19 @@
 project_id = "nsvuyhblbvbijxmqjndt"
+
+[functions.dashboard-stats]
+verify_jwt = false
+
+[functions.generate-bills]
+verify_jwt = false
+
+[functions.mark-overdue-bills]
+verify_jwt = false
+
+[functions.visitor-notify]
+verify_jwt = false
+
+[functions.admin-assign-role]
+verify_jwt = false
+
+[functions.reports-generate]
+verify_jwt = false
