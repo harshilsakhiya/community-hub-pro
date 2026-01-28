@@ -577,7 +577,11 @@ export function useUnits() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('units')
-        .select('*')
+        .select(`
+          *,
+          buildings (id, name),
+          wings (id, name)
+        `)
         .order('block')
         .order('unit_number');
       
@@ -585,6 +589,146 @@ export function useUnits() {
       return data;
     },
     enabled: !!user,
+  });
+}
+
+// Buildings Hook
+export function useBuildings() {
+  const { user } = useAuth();
+  
+  return useQuery({
+    queryKey: ['buildings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('buildings')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+}
+
+export function useCreateBuilding() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  return useMutation({
+    mutationFn: async (data: {
+      name: string;
+      address?: string;
+      totalFloors?: number;
+    }) => {
+      const { error } = await supabase
+        .from('buildings')
+        .insert({
+          name: data.name,
+          address: data.address,
+          total_floors: data.totalFloors || 1,
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['buildings'] });
+      toast({ title: 'Success', description: 'Building created successfully' });
+    },
+    onError: (error) => {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    },
+  });
+}
+
+// Wings Hook
+export function useWings(buildingId?: string) {
+  const { user } = useAuth();
+  
+  return useQuery({
+    queryKey: ['wings', buildingId],
+    queryFn: async () => {
+      let query = supabase
+        .from('wings')
+        .select('*')
+        .order('name');
+      
+      if (buildingId) {
+        query = query.eq('building_id', buildingId);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+}
+
+export function useCreateWing() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  return useMutation({
+    mutationFn: async (data: {
+      name: string;
+      buildingId: string;
+      totalUnits?: number;
+    }) => {
+      const { error } = await supabase
+        .from('wings')
+        .insert({
+          name: data.name,
+          building_id: data.buildingId,
+          total_units: data.totalUnits || 0,
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wings'] });
+      toast({ title: 'Success', description: 'Wing created successfully' });
+    },
+    onError: (error) => {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    },
+  });
+}
+
+export function useCreateUnit() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  return useMutation({
+    mutationFn: async (data: {
+      unitNumber: string;
+      block: string;
+      floorNumber?: number;
+      areaSqft?: number;
+      buildingId?: string;
+      wingId?: string;
+    }) => {
+      const { error } = await supabase
+        .from('units')
+        .insert({
+          unit_number: data.unitNumber,
+          block: data.block,
+          floor_number: data.floorNumber,
+          area_sqft: data.areaSqft,
+          building_id: data.buildingId,
+          wing_id: data.wingId,
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['units'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      toast({ title: 'Success', description: 'Unit created successfully' });
+    },
+    onError: (error) => {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    },
   });
 }
 
