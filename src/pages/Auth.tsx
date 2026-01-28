@@ -1,24 +1,78 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Building2, Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get("tab") === "signup" ? "signup" : "login";
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { login } = useAuth();
   
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Login form state
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+
+  // Signup form state
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPhone, setSignupPhone] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // TODO: Implement actual auth
-    setTimeout(() => setIsLoading(false), 1500);
+    
+    try {
+      await login(loginEmail, loginPassword);
+      toast({
+        title: "Welcome back!",
+        description: "Login successful.",
+      });
+      navigate("/dashboard");
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Login failed",
+        description: error instanceof Error ? error.message : "Invalid credentials",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      // For demo - show success message
+      // In production, connect to authAPI.register()
+      toast({
+        title: "Account created!",
+        description: "Please check your phone for OTP verification.",
+      });
+      // Switch to login tab
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Signup failed",
+        description: error instanceof Error ? error.message : "Could not create account",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -54,7 +108,7 @@ export default function Auth() {
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <div className="relative">
@@ -64,6 +118,8 @@ export default function Auth() {
                       type="email"
                       placeholder="you@example.com"
                       className="pl-10"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
                       required
                     />
                   </div>
@@ -83,6 +139,8 @@ export default function Auth() {
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
                       className="pl-10 pr-10"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
                       required
                     />
                     <button
@@ -99,6 +157,10 @@ export default function Auth() {
                   {isLoading ? "Signing in..." : "Sign In"}
                   <ArrowRight className="w-4 h-4" />
                 </Button>
+
+                <div className="text-center text-sm text-muted-foreground">
+                  Demo credentials: admin@demo.com / password123
+                </div>
               </form>
             </TabsContent>
 
@@ -111,7 +173,7 @@ export default function Auth() {
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSignup} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
@@ -121,13 +183,21 @@ export default function Auth() {
                         id="firstName"
                         placeholder="John"
                         className="pl-10"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
                         required
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" placeholder="Doe" required />
+                    <Input
+                      id="lastName"
+                      placeholder="Doe"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                    />
                   </div>
                 </div>
 
@@ -140,6 +210,8 @@ export default function Auth() {
                       type="email"
                       placeholder="you@example.com"
                       className="pl-10"
+                      value={signupEmail}
+                      onChange={(e) => setSignupEmail(e.target.value)}
                       required
                     />
                   </div>
@@ -154,6 +226,8 @@ export default function Auth() {
                       type="tel"
                       placeholder="+91 98765 43210"
                       className="pl-10"
+                      value={signupPhone}
+                      onChange={(e) => setSignupPhone(e.target.value)}
                       required
                     />
                   </div>
@@ -168,6 +242,8 @@ export default function Auth() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Create a strong password"
                       className="pl-10 pr-10"
+                      value={signupPassword}
+                      onChange={(e) => setSignupPassword(e.target.value)}
                       required
                     />
                     <button
