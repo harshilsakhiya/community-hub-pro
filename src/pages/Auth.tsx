@@ -1,17 +1,19 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Building2, Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff, CheckCircle } from "lucide-react";
+import { Building2, Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff, CheckCircle, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 type SignupStep = "details" | "otp" | "complete";
+type SignupRole = "admin" | "resident";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -34,6 +36,7 @@ export default function Auth() {
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [signupRole, setSignupRole] = useState<SignupRole>("resident");
   const [otpValue, setOtpValue] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
 
@@ -110,6 +113,21 @@ export default function Auth() {
 
       if (signupError) throw signupError;
 
+      // If signing up as admin, update their role
+      if (signupRole === "admin" && data.user) {
+        // Wait for the trigger to create default role, then update
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .update({ role: "admin" })
+          .eq("user_id", data.user.id);
+
+        if (roleError) {
+          console.warn("Could not set admin role:", roleError.message);
+        }
+      }
+
       // Send OTP to phone
       const { error: otpError } = await supabase.auth.signInWithOtp({
         phone: formattedPhone,
@@ -120,7 +138,9 @@ export default function Auth() {
         console.warn("Phone OTP failed:", otpError.message);
         toast({
           title: "Account created!",
-          description: "Phone verification is not available. You can now sign in with your email.",
+          description: signupRole === "admin" 
+            ? "Admin account created. You can now sign in with your email."
+            : "Phone verification is not available. You can now sign in with your email.",
         });
         setSignupStep("complete");
       } else {
@@ -227,6 +247,7 @@ export default function Auth() {
     setSignupEmail("");
     setSignupPhone("");
     setSignupPassword("");
+    setSignupRole("resident");
     setOtpValue("");
   };
 
@@ -412,6 +433,34 @@ export default function Auth() {
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Account Type</Label>
+                      <Select value={signupRole} onValueChange={(value: SignupRole) => setSignupRole(value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select account type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="resident">
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4" />
+                              <span>Resident</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="admin">
+                            <div className="flex items-center gap-2">
+                              <Shield className="w-4 h-4" />
+                              <span>Admin (Society Manager)</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {signupRole === "admin" && (
+                        <p className="text-xs text-muted-foreground">
+                          As an admin, you can manage users, buildings, and society settings.
+                        </p>
+                      )}
                     </div>
 
                     <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
