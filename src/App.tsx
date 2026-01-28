@@ -26,6 +26,9 @@ import Reports from "./pages/Reports";
 import SettingsPage from "./pages/Settings";
 import Profile from "./pages/Profile";
 
+// Auth components
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -41,7 +44,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/admin" element={<AdminPanel />} />
             
-            {/* Dashboard Routes - shadcn/ui */}
+            {/* Protected Dashboard Routes */}
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="buildings" element={<Buildings />} />

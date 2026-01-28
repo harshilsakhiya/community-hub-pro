@@ -2,14 +2,16 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
-interface AuthUser {
+export type UserRole = "admin" | "resident" | "gatekeeper" | "committee_member";
+
+export interface AuthUser {
   id: string;
   email: string;
   phone?: string;
   firstName?: string;
   lastName?: string;
   fullName?: string;
-  role?: string;
+  role?: UserRole;
   avatar?: string;
 }
 
@@ -21,6 +23,10 @@ interface AuthContextType {
   signup: (email: string, password: string, fullName?: string, phone?: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  hasRole: (roles: UserRole | UserRole[]) => boolean;
+  isAdmin: boolean;
+  isGatekeeper: boolean;
+  isResident: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -128,6 +134,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   };
 
+  // Role checking utilities
+  const hasRole = (roles: UserRole | UserRole[]): boolean => {
+    if (!user?.role) return false;
+    const rolesArray = Array.isArray(roles) ? roles : [roles];
+    return rolesArray.includes(user.role);
+  };
+
+  const isAdmin = user?.role === "admin";
+  const isGatekeeper = user?.role === "gatekeeper";
+  const isResident = user?.role === "resident";
+
   return (
     <AuthContext.Provider
       value={{
@@ -138,6 +155,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signup,
         logout,
         isAuthenticated: !!session,
+        hasRole,
+        isAdmin,
+        isGatekeeper,
+        isResident,
       }}
     >
       {children}
