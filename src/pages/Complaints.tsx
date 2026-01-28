@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   MessageSquare,
@@ -11,88 +12,29 @@ import {
   Droplets,
   Lightbulb,
   Volume2,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
-const complaints = [
-  {
-    id: "CMP-001",
-    title: "Water leakage in bathroom ceiling",
-    description:
-      "There is continuous water dripping from the bathroom ceiling. Seems like a leak from the flat above.",
-    category: "plumbing",
-    unit: "C-301",
-    resident: "Vikram Singh",
-    status: "in_progress",
-    priority: "high",
-    createdAt: "Jan 27, 2025",
-    updatedAt: "Jan 28, 2025",
-  },
-  {
-    id: "CMP-002",
-    title: "Lift not working in Block B",
-    description:
-      "The lift in Block B has been out of service since yesterday morning. Senior citizens are facing difficulty.",
-    category: "electrical",
-    unit: "B-102",
-    resident: "Sneha Gupta",
-    status: "open",
-    priority: "urgent",
-    createdAt: "Jan 28, 2025",
-    updatedAt: "Jan 28, 2025",
-  },
-  {
-    id: "CMP-003",
-    title: "Noise complaint - Late night parties",
-    description:
-      "Flat D-401 has been playing loud music past midnight on weekends. Disturbing peaceful sleep.",
-    category: "noise",
-    unit: "D-303",
-    resident: "Anita Deshmukh",
-    status: "resolved",
-    priority: "medium",
-    createdAt: "Jan 20, 2025",
-    updatedAt: "Jan 25, 2025",
-  },
-  {
-    id: "CMP-004",
-    title: "Street light not working near parking",
-    description:
-      "The street light near the visitor parking area has been off for a week. Safety concern at night.",
-    category: "electrical",
-    unit: "A-201",
-    resident: "Rajesh Kumar",
-    status: "in_progress",
-    priority: "medium",
-    createdAt: "Jan 22, 2025",
-    updatedAt: "Jan 26, 2025",
-  },
-];
-
-const stats = [
-  {
-    title: "Open",
-    value: "12",
-    icon: AlertCircle,
-    color: "bg-destructive/10 text-destructive",
-  },
-  {
-    title: "In Progress",
-    value: "8",
-    icon: Clock,
-    color: "bg-warning/10 text-warning",
-  },
-  {
-    title: "Resolved",
-    value: "45",
-    icon: CheckCircle2,
-    color: "bg-success/10 text-success",
-  },
-];
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useComplaints, useComplaintStats, useCreateComplaint, useUnits } from "@/hooks/useSupabaseData";
 
 const getCategoryIcon = (category: string) => {
   switch (category) {
@@ -122,6 +64,7 @@ const getStatusBadge = (status: string) => {
         </Badge>
       );
     case "resolved":
+    case "closed":
       return (
         <Badge className="bg-success/10 text-success border-success/20">
           Resolved
@@ -147,7 +90,72 @@ const getPriorityBadge = (priority: string) => {
   }
 };
 
+type ComplaintCategory = 'plumbing' | 'electrical' | 'noise' | 'maintenance' | 'security' | 'parking' | 'other';
+type ComplaintPriority = 'low' | 'medium' | 'high' | 'urgent';
+
 export default function Complaints() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newComplaint, setNewComplaint] = useState<{
+    title: string;
+    description: string;
+    category: ComplaintCategory;
+    priority: ComplaintPriority;
+    unitId: string;
+  }>({
+    title: "",
+    description: "",
+    category: "other",
+    priority: "medium",
+    unitId: "",
+  });
+
+  const { data: complaints, isLoading: complaintsLoading } = useComplaints();
+  const { data: stats, isLoading: statsLoading } = useComplaintStats();
+  const { data: units } = useUnits();
+  const createComplaintMutation = useCreateComplaint();
+
+  const filteredComplaints = complaints?.filter(complaint =>
+    complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    complaint.ticket_number.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const statCards = [
+    {
+      title: "Open",
+      value: stats?.open?.toString() || "0",
+      icon: AlertCircle,
+      color: "bg-destructive/10 text-destructive",
+    },
+    {
+      title: "In Progress",
+      value: stats?.inProgress?.toString() || "0",
+      icon: Clock,
+      color: "bg-warning/10 text-warning",
+    },
+    {
+      title: "Resolved",
+      value: stats?.resolved?.toString() || "0",
+      icon: CheckCircle2,
+      color: "bg-success/10 text-success",
+    },
+  ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComplaint.title || !newComplaint.description || !newComplaint.unitId) return;
+    
+    await createComplaintMutation.mutateAsync(newComplaint);
+    setIsDialogOpen(false);
+    setNewComplaint({
+      title: "",
+      description: "",
+      category: "other",
+      priority: "medium",
+      unitId: "",
+    });
+  };
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -164,10 +172,104 @@ export default function Complaints() {
             Track and resolve resident complaints
           </p>
         </div>
-        <Button variant="default">
-          <Plus className="w-4 h-4 mr-2" />
-          New Complaint
-        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="default">
+              <Plus className="w-4 h-4 mr-2" />
+              New Complaint
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Submit New Complaint</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  value={newComplaint.title}
+                  onChange={(e) => setNewComplaint({ ...newComplaint, title: e.target.value })}
+                  placeholder="Brief description of the issue"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={newComplaint.description}
+                  onChange={(e) => setNewComplaint({ ...newComplaint, description: e.target.value })}
+                  placeholder="Detailed description..."
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select
+                    value={newComplaint.category}
+                    onValueChange={(value: ComplaintCategory) => setNewComplaint({ ...newComplaint, category: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="plumbing">Plumbing</SelectItem>
+                      <SelectItem value="electrical">Electrical</SelectItem>
+                      <SelectItem value="noise">Noise</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                      <SelectItem value="security">Security</SelectItem>
+                      <SelectItem value="parking">Parking</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Priority</Label>
+                  <Select
+                    value={newComplaint.priority}
+                    onValueChange={(value: ComplaintPriority) => setNewComplaint({ ...newComplaint, priority: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Unit</Label>
+                <Select
+                  value={newComplaint.unitId}
+                  onValueChange={(value) => setNewComplaint({ ...newComplaint, unitId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {units?.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id}>
+                        {unit.block}-{unit.unit_number}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" className="w-full" disabled={createComplaintMutation.isPending}>
+                {createComplaintMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                Submit Complaint
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </motion.div>
 
       {/* Stats */}
@@ -177,7 +279,7 @@ export default function Complaints() {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-3 gap-4 mb-8"
       >
-        {stats.map((stat, index) => (
+        {statCards.map((stat, index) => (
           <Card key={index} className="card-interactive">
             <CardContent className="p-5">
               <div className="flex items-center gap-4">
@@ -186,7 +288,9 @@ export default function Complaints() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-2xl font-bold">{stat.value}</p>
+                  <p className="text-2xl font-bold">
+                    {statsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : stat.value}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -203,7 +307,12 @@ export default function Complaints() {
       >
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input placeholder="Search complaints..." className="pl-12 h-12" />
+          <Input 
+            placeholder="Search complaints..." 
+            className="pl-12 h-12"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <Button variant="outline" size="icon" className="h-12 w-12">
           <Filter className="w-5 h-5" />
@@ -217,57 +326,67 @@ export default function Complaints() {
         transition={{ delay: 0.2 }}
         className="space-y-4"
       >
-        {complaints.map((complaint, index) => {
-          const CategoryIcon = getCategoryIcon(complaint.category);
-          return (
-            <motion.div
-              key={complaint.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 * index }}
-            >
-              <Card className="card-interactive">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-xl bg-muted">
-                      <CategoryIcon className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-4 mb-2">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm text-muted-foreground">
-                              {complaint.id}
-                            </span>
-                            {getStatusBadge(complaint.status)}
-                            {getPriorityBadge(complaint.priority)}
+        {complaintsLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-accent" />
+          </div>
+        ) : filteredComplaints && filteredComplaints.length > 0 ? (
+          filteredComplaints.map((complaint, index) => {
+            const CategoryIcon = getCategoryIcon(complaint.category);
+            return (
+              <motion.div
+                key={complaint.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 * index }}
+              >
+                <Card className="card-interactive">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 rounded-xl bg-muted">
+                        <CategoryIcon className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm text-muted-foreground">
+                                {complaint.ticket_number}
+                              </span>
+                              {getStatusBadge(complaint.status)}
+                              {getPriorityBadge(complaint.priority)}
+                            </div>
+                            <h3 className="font-semibold text-lg">
+                              {complaint.title}
+                            </h3>
                           </div>
-                          <h3 className="font-semibold text-lg">
-                            {complaint.title}
-                          </h3>
                         </div>
-                      </div>
-                      <p className="text-muted-foreground mb-4 line-clamp-2">
-                        {complaint.description}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>Unit {complaint.unit}</span>
-                          <span>•</span>
-                          <span>{complaint.resident}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Clock className="w-4 h-4" />
-                          <span>{complaint.createdAt}</span>
+                        <p className="text-muted-foreground mb-4 line-clamp-2">
+                          {complaint.description}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span>
+                              Unit {complaint.units?.block}-{complaint.units?.unit_number}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="w-4 h-4" />
+                            <span>{new Date(complaint.created_at).toLocaleDateString()}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            No complaints found
+          </div>
+        )}
       </motion.div>
     </div>
   );

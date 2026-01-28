@@ -12,80 +12,13 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-
-const stats = [
-  {
-    title: "Total Collection",
-    value: "₹12,45,000",
-    change: "+12.5%",
-    trend: "up",
-    icon: IndianRupee,
-    color: "text-success",
-  },
-  {
-    title: "Pending Dues",
-    value: "₹2,35,000",
-    change: "-8.2%",
-    trend: "down",
-    icon: Clock,
-    color: "text-warning",
-  },
-  {
-    title: "Active Residents",
-    value: "248",
-    change: "+5",
-    trend: "up",
-    icon: Users,
-    color: "text-accent",
-  },
-  {
-    title: "Open Complaints",
-    value: "12",
-    change: "-3",
-    trend: "down",
-    icon: MessageSquare,
-    color: "text-destructive",
-  },
-];
-
-const recentActivities = [
-  {
-    id: 1,
-    type: "payment",
-    message: "Flat A-201 paid maintenance for January 2025",
-    time: "2 hours ago",
-    icon: CheckCircle2,
-    iconColor: "text-success",
-  },
-  {
-    id: 2,
-    type: "visitor",
-    message: "New visitor registered for Flat B-102",
-    time: "3 hours ago",
-    icon: Users,
-    iconColor: "text-accent",
-  },
-  {
-    id: 3,
-    type: "complaint",
-    message: "New complaint: Water leakage in Block C",
-    time: "5 hours ago",
-    icon: AlertCircle,
-    iconColor: "text-warning",
-  },
-  {
-    id: 4,
-    type: "notice",
-    message: "AGM scheduled for February 15, 2025",
-    time: "1 day ago",
-    icon: Bell,
-    iconColor: "text-primary",
-  },
-];
+import { useAuth } from "@/hooks/useAuth";
+import { useDashboardStats, useRecentActivity } from "@/hooks/useSupabaseData";
 
 const quickActions = [
   { label: "Generate Bills", icon: CreditCard, path: "/dashboard/billing" },
@@ -107,7 +40,69 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
+const getActivityIcon = (type: string) => {
+  switch (type) {
+    case 'payment':
+      return { icon: CheckCircle2, color: 'text-success' };
+    case 'visitor':
+      return { icon: Users, color: 'text-accent' };
+    case 'complaint':
+      return { icon: AlertCircle, color: 'text-warning' };
+    case 'notice':
+      return { icon: Bell, color: 'text-primary' };
+    default:
+      return { icon: Clock, color: 'text-muted-foreground' };
+  }
+};
+
 export default function Dashboard() {
+  const { user } = useAuth();
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: activities, isLoading: activitiesLoading } = useRecentActivity();
+
+  const dashboardStats = [
+    {
+      title: "Total Collection",
+      value: stats ? `₹${(stats.totalCollection).toLocaleString()}` : "₹0",
+      change: "+12.5%",
+      trend: "up",
+      icon: IndianRupee,
+      color: "text-success",
+    },
+    {
+      title: "Pending Dues",
+      value: stats ? `₹${(stats.pendingAmount).toLocaleString()}` : "₹0",
+      change: "-8.2%",
+      trend: "down",
+      icon: Clock,
+      color: "text-warning",
+    },
+    {
+      title: "Active Residents",
+      value: stats?.occupiedUnits?.toString() || "0",
+      change: "+5",
+      trend: "up",
+      icon: Users,
+      color: "text-accent",
+    },
+    {
+      title: "Open Complaints",
+      value: stats?.openComplaints?.toString() || "0",
+      change: "-3",
+      trend: "down",
+      icon: MessageSquare,
+      color: "text-destructive",
+    },
+  ];
+
+  if (statsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -116,7 +111,9 @@ export default function Dashboard() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        <h1 className="text-2xl lg:text-3xl font-bold mb-2">Welcome back, Admin 👋</h1>
+        <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+          Welcome back, {user?.fullName || user?.firstName || 'Admin'} 👋
+        </h1>
         <p className="text-muted-foreground">
           Here's what's happening in your society today.
         </p>
@@ -129,7 +126,7 @@ export default function Dashboard() {
         animate="visible"
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
       >
-        {stats.map((stat, index) => (
+        {dashboardStats.map((stat, index) => (
           <motion.div key={index} variants={itemVariants}>
             <Card className="card-interactive">
               <CardContent className="p-6">
@@ -203,22 +200,33 @@ export default function Dashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentActivities.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className={`p-2 rounded-lg bg-muted ${activity.iconColor}`}>
-                      <activity.icon className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{activity.message}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {activitiesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : activities && activities.length > 0 ? (
+                <div className="space-y-4">
+                  {activities.map((activity) => {
+                    const { icon: Icon, color } = getActivityIcon(activity.type);
+                    return (
+                      <div
+                        key={activity.id}
+                        className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className={`p-2 rounded-lg bg-muted ${color}`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{activity.message}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">No recent activity</p>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -245,15 +253,15 @@ export default function Dashboard() {
                 <p className="text-sm text-muted-foreground mt-1">Blocks</p>
               </div>
               <div className="text-center p-4 rounded-xl bg-muted/50">
-                <p className="text-3xl font-bold text-accent">256</p>
+                <p className="text-3xl font-bold text-accent">{stats?.totalUnits || 0}</p>
                 <p className="text-sm text-muted-foreground mt-1">Total Units</p>
               </div>
               <div className="text-center p-4 rounded-xl bg-muted/50">
-                <p className="text-3xl font-bold text-accent">248</p>
+                <p className="text-3xl font-bold text-accent">{stats?.occupiedUnits || 0}</p>
                 <p className="text-sm text-muted-foreground mt-1">Occupied</p>
               </div>
               <div className="text-center p-4 rounded-xl bg-muted/50">
-                <p className="text-3xl font-bold text-accent">8</p>
+                <p className="text-3xl font-bold text-accent">{stats?.vacantUnits || 0}</p>
                 <p className="text-sm text-muted-foreground mt-1">Vacant</p>
               </div>
             </div>
