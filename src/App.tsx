@@ -26,6 +26,7 @@ import Reports from "./pages/Reports";
 import SettingsPage from "./pages/Settings";
 import Profile from "./pages/Profile";
 import SocietyManagement from "./pages/SocietyManagement";
+import UserManagement from "./pages/UserManagement";
 
 // Auth components
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -60,6 +61,11 @@ const App = () => (
               <Route path="reports" element={<Reports />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="users" element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <UserManagement />
+                </ProtectedRoute>
+              } />
             </Route>
             
             {/* Catch-all */}
