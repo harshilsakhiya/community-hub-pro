@@ -805,3 +805,190 @@ export function useRecentActivity() {
     enabled: !!user,
   });
 }
+
+// Complaint Details Hook
+export function useComplaintDetails(complaintId: string | null) {
+  const { user } = useAuth();
+  
+  return useQuery({
+    queryKey: ['complaint-details', complaintId],
+    queryFn: async () => {
+      if (!complaintId) return null;
+      
+      const { data: complaint, error } = await supabase
+        .from('complaints')
+        .select(`
+          *,
+          units (id, unit_number, block)
+        `)
+        .eq('id', complaintId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      if (!complaint) return null;
+      
+      // Fetch images separately
+      const { data: images } = await supabase
+        .from('complaint_images')
+        .select('*')
+        .eq('complaint_id', complaintId)
+        .order('created_at', { ascending: true });
+      
+      return {
+        ...complaint,
+        images: images || [],
+      };
+    },
+    enabled: !!user && !!complaintId,
+  });
+}
+
+// Complaint Comments Hook
+export function useComplaintComments(complaintId: string | null) {
+  const { user } = useAuth();
+  
+  return useQuery({
+    queryKey: ['complaint-comments', complaintId],
+    queryFn: async () => {
+      if (!complaintId) return [];
+      
+      // Fetch comments
+      const { data: comments, error } = await supabase
+        .from('complaint_comments')
+        .select('*')
+        .eq('complaint_id', complaintId)
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      if (!comments || comments.length === 0) return [];
+      
+      // Fetch user profiles for comments
+      const userIds = [...new Set(comments.map(c => c.user_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds);
+      
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      
+      return comments.map(comment => ({
+        ...comment,
+        profiles: profileMap.get(comment.user_id) || null,
+      }));
+    },
+    enabled: !!user && !!complaintId,
+  });
+}
+
+// Add Complaint Comment Hook
+export function useAddComplaintComment() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { user } = useAuth();
+  
+  return useMutation({
+    mutationFn: async (data: {
+      complaintId: string;
+      comment: string;
+      isInternal?: boolean;
+    }) => {
+      const { error } = await supabase
+        .from('complaint_comments')
+        .insert({
+          complaint_id: data.complaintId,
+          user_id: user?.id || '',
+          comment: data.comment,
+          is_internal: data.isInternal || false,
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['complaint-comments', variables.complaintId] });
+      toast({ title: 'Success', description: 'Comment added' });
+    },
+    onError: (error) => {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    },
+  });
+}
+
+// Create Complaint with Images Hook
+export function useCreateComplaintWithImages() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { user } = useAuth();
+  
+  return useMutation({
+    mutationFn: async (data: {
+      title: string;
+      description: string;
+      category: 'plumbing' | 'electrical' | 'noise' | 'maintenance' | 'security' | 'parking' | 'other';
+      priority: 'low' | 'medium' | 'high' | 'urgent';
+      unitId: string;
+      images?: File[];
+    }) => {
+      const ticketNumber = `CMP-${Date.now().toString().slice(-6)}`;
+      
+      // Create the complaint first
+      const { data: complaint, error: complaintError } = await supabase
+        .from('complaints')
+        .insert({
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          priority: data.priority,
+          unit_id: data.unitId,
+          ticket_number: ticketNumber,
+          submitted_by: user?.id || '',
+        })
+        .select('id')
+        .single();
+      
+      if (complaintError) throw complaintError;
+      
+      // Upload images if any
+      if (data.images && data.images.length > 0) {
+        for (const file of data.images) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${user?.id}/${complaint.id}/${Date.now()}.${fileExt}`;
+          
+          // Upload to storage
+          const { error: uploadError } = await supabase.storage
+            .from('complaint-images')
+            .upload(fileName, file);
+          
+          if (uploadError) {
+            console.error('Image upload failed:', uploadError);
+            continue;
+          }
+          
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from('complaint-images')
+            .getPublicUrl(fileName);
+          
+          // Save image record
+          await supabase
+            .from('complaint_images')
+            .insert({
+              complaint_id: complaint.id,
+              image_url: urlData.publicUrl,
+              file_name: file.name,
+              uploaded_by: user?.id || '',
+            });
+        }
+      }
+      
+      return complaint;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['complaints'] });
+      queryClient.invalidateQueries({ queryKey: ['complaint-stats'] });
+      toast({ title: 'Success', description: 'Complaint submitted successfully' });
+    },
+    onError: (error) => {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    },
+  });
+}
