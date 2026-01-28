@@ -1,9 +1,13 @@
 import { motion } from "framer-motion";
-import { Building2, Shield, Users, ArrowRight } from "lucide-react";
+import { Building2, Shield, Users, ArrowRight, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
-export function Hero() {
+interface HeroProps {
+  onRequestDemo: () => void;
+}
+
+export function Hero({ onRequestDemo }: HeroProps) {
   return (
     <section className="relative min-h-screen flex items-center justify-center hero-gradient animated-bg overflow-hidden">
       {/* Decorative elements */}
@@ -63,10 +67,9 @@ export function Hero() {
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
-            <Button asChild variant="heroOutline" size="xl">
-              <Link to="/dashboard">
-                View Demo
-              </Link>
+            <Button variant="heroOutline" size="xl" onClick={onRequestDemo}>
+              <Play className="w-5 h-5" />
+              View Demo
             </Button>
           </motion.div>
 
