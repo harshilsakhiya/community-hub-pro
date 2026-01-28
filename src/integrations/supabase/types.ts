@@ -52,6 +52,76 @@ export type Database = {
           },
         ]
       }
+      complaint_comments: {
+        Row: {
+          comment: string
+          complaint_id: string
+          created_at: string
+          id: string
+          is_internal: boolean | null
+          user_id: string
+        }
+        Insert: {
+          comment: string
+          complaint_id: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean | null
+          user_id: string
+        }
+        Update: {
+          comment?: string
+          complaint_id?: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "complaint_comments_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "complaints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      complaint_images: {
+        Row: {
+          complaint_id: string
+          created_at: string
+          file_name: string
+          id: string
+          image_url: string
+          uploaded_by: string
+        }
+        Insert: {
+          complaint_id: string
+          created_at?: string
+          file_name: string
+          id?: string
+          image_url: string
+          uploaded_by: string
+        }
+        Update: {
+          complaint_id?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          image_url?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "complaint_images_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "complaints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       complaints: {
         Row: {
           assigned_to: string | null
