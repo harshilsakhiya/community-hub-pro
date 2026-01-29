@@ -1,15 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  Plus,
   Edit,
   Search,
   User,
   Phone,
-  Mail,
   Home,
   UserCircle,
+  Building2,
 } from 'lucide-react';
-import { useUnits } from '@/hooks/useSupabaseData';
+import { useUnits, useBuildings, useWings } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
@@ -27,7 +26,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -61,11 +59,15 @@ interface Resident {
     id: string;
     block: string;
     unit_number: string;
+    building_id: string;
+    wing_id: string;
   };
 }
 
-// Form Schema
+// Form Schema - All fields mandatory
 const assignUnitSchema = z.object({
+  buildingId: z.string().min(1, 'Please select a building'),
+  wingId: z.string().min(1, 'Please select a wing'),
   unitId: z.string().min(1, 'Please select a unit'),
 });
 
@@ -75,16 +77,52 @@ export default function Residents() {
   const [searchText, setSearchText] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedResident, setSelectedResident] = useState<Resident | null>(null);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
+  const [selectedWingId, setSelectedWingId] = useState<string>('');
   const { toast } = useToast();
 
   const { data: units } = useUnits();
+  const { data: buildings } = useBuildings();
+  const { data: wings } = useWings();
 
   const form = useForm<AssignUnitFormValues>({
     resolver: zodResolver(assignUnitSchema),
     defaultValues: {
+      buildingId: '',
+      wingId: '',
       unitId: '',
     },
   });
+
+  // Watch form values for cascading selection
+  const watchBuildingId = form.watch('buildingId');
+  const watchWingId = form.watch('wingId');
+
+  // Reset wing and unit when building changes
+  useEffect(() => {
+    if (watchBuildingId !== selectedBuildingId) {
+      setSelectedBuildingId(watchBuildingId);
+      form.setValue('wingId', '');
+      form.setValue('unitId', '');
+      setSelectedWingId('');
+    }
+  }, [watchBuildingId, selectedBuildingId, form]);
+
+  // Reset unit when wing changes
+  useEffect(() => {
+    if (watchWingId !== selectedWingId) {
+      setSelectedWingId(watchWingId);
+      form.setValue('unitId', '');
+    }
+  }, [watchWingId, selectedWingId, form]);
+
+  // Filter wings by selected building
+  const filteredWings = wings?.filter(w => w.building_id === selectedBuildingId) || [];
+
+  // Filter units by selected wing (and unassigned)
+  const filteredUnits = units?.filter(u => 
+    u.wing_id === selectedWingId && !u.owner_id
+  ) || [];
 
   // Fetch residents with their units
   const { data: residents, isLoading, refetch } = useQuery({
@@ -97,10 +135,10 @@ export default function Residents() {
 
       if (error) throw error;
 
-      // Get unit assignments
+      // Get unit assignments with building and wing info
       const { data: unitData } = await supabase
         .from('units')
-        .select('id, owner_id, block, unit_number');
+        .select('id, owner_id, block, unit_number, building_id, wing_id');
 
       return profiles.map(profile => ({
         ...profile,
@@ -125,6 +163,8 @@ export default function Residents() {
         });
         setIsDialogOpen(false);
         form.reset();
+        setSelectedBuildingId('');
+        setSelectedWingId('');
         refetch();
       }
     } catch (error) {
@@ -136,102 +176,28 @@ export default function Residents() {
     }
   };
 
-  const columns = [
-    {
-      header: 'Resident',
-      cell: ({ row }: any) => {
-        const resident = row.original;
-        return (
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={resident.avatar_url} />
-              <AvatarFallback className="bg-[#2d9676] text-white">
-                {resident.full_name?.[0]?.toUpperCase() || <User className="h-5 w-5" />}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium text-sm">{resident.full_name || 'Unknown'}</p>
-              <p className="text-xs text-gray-500">
-                {resident.email}
-              </p>
-            </div>
-          </div>
-        );
-      },
-    },
-    {
-      header: 'Phone',
-      accessorKey: 'phone',
-      cell: ({ row }: any) => {
-        const phone = row.getValue('phone');
-        return (
-          <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-gray-400" />
-            <span>{phone || '-'}</span>
-          </div>
-        );
-      },
-    },
-    {
-      header: 'Unit',
-      cell: ({ row }: any) => {
-        const resident = row.original;
-        return resident.unit ? (
-          <Badge variant="secondary" className="gap-1">
-            <Home className="h-3 w-3" />
-            {resident.unit.block}-{resident.unit.unit_number}
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">
-            Unassigned
-          </Badge>
-        );
-      },
-    },
-    {
-      header: 'Status',
-      cell: ({ row }: any) => {
-        const resident = row.original;
-        return resident.unit ? (
-          <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
-            Active
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="text-gray-600">
-            Pending
-          </Badge>
-        );
-      },
-    },
-    {
-      header: 'Actions',
-      cell: ({ row }: any) => {
-        const resident = row.original;
-        return (
-          <div className="flex items-center gap-2">
-            {!resident.unit && (
-              <Button
-                size="sm"
-                variant="default"
-                onClick={() => {
-                  setSelectedResident(resident);
-                  form.reset();
-                  setIsDialogOpen(true);
-                }}
-              >
-                <Home className="mr-2 h-3 w-3" />
-                Assign Unit
-              </Button>
-            )}
-            <Button size="sm" variant="outline">
-              <Edit className="mr-2 h-3 w-3" />
-              Edit
-            </Button>
-          </div>
-        );
-      },
-    },
-  ];
+  const openAssignDialog = (resident: Resident) => {
+    setSelectedResident(resident);
+    form.reset({
+      buildingId: '',
+      wingId: '',
+      unitId: '',
+    });
+    setSelectedBuildingId('');
+    setSelectedWingId('');
+    setIsDialogOpen(true);
+  };
+
+  // Get building and wing names for display
+  const getBuildingName = (buildingId: string | undefined) => {
+    if (!buildingId) return '';
+    return buildings?.find(b => b.id === buildingId)?.name || '';
+  };
+
+  const getWingName = (wingId: string | undefined) => {
+    if (!wingId) return '';
+    return wings?.find(w => w.id === wingId)?.name || '';
+  };
 
   const stats = {
     total: residents?.length || 0,
@@ -251,7 +217,7 @@ export default function Residents() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Resident Management</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             View and manage all residents in your society
           </p>
         </div>
@@ -264,11 +230,11 @@ export default function Residents() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-col items-center text-center">
-              <div className="w-12 h-12 rounded-full bg-[#2d9676]/10 flex items-center justify-center mb-3">
-                <User className="h-6 w-6 text-[#2d9676]" />
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <User className="h-6 w-6 text-primary" />
               </div>
               <p className="text-3xl font-bold">{stats.total}</p>
-              <p className="text-sm text-gray-500">Total Residents</p>
+              <p className="text-sm text-muted-foreground">Total Residents</p>
             </div>
           </CardContent>
         </Card>
@@ -280,7 +246,7 @@ export default function Residents() {
                 <Home className="h-6 w-6 text-green-600" />
               </div>
               <p className="text-3xl font-bold">{stats.assigned}</p>
-              <p className="text-sm text-gray-500">With Units</p>
+              <p className="text-sm text-muted-foreground">With Units</p>
             </div>
           </CardContent>
         </Card>
@@ -292,7 +258,7 @@ export default function Residents() {
                 <UserCircle className="h-6 w-6 text-amber-600" />
               </div>
               <p className="text-3xl font-bold">{stats.pending}</p>
-              <p className="text-sm text-gray-500">Pending Assignment</p>
+              <p className="text-sm text-muted-foreground">Pending Assignment</p>
             </div>
           </CardContent>
         </Card>
@@ -309,7 +275,7 @@ export default function Residents() {
         <CardContent>
           <div className="mb-4">
             <div className="relative max-w-md">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search residents by name, email, or phone..."
                 className="pl-9"
@@ -323,18 +289,20 @@ export default function Residents() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columns.map((column) => (
-                    <TableHead key={column.header}>
-                      {column.header}
-                    </TableHead>
-                  ))}
+                  <TableHead>Resident</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Building</TableHead>
+                  <TableHead>Wing</TableHead>
+                  <TableHead>Unit</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <TableRow key={index}>
-                      {columns.map((_, colIndex) => (
+                      {Array.from({ length: 7 }).map((_, colIndex) => (
                         <TableCell key={colIndex}>
                           <Skeleton className="h-4 w-full" />
                         </TableCell>
@@ -343,22 +311,109 @@ export default function Residents() {
                   ))
                 ) : filteredResidents?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={columns.length} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="flex flex-col items-center gap-2">
-                        <User className="h-8 w-8 text-gray-400" />
-                        <p className="text-gray-500">No residents found</p>
+                        <User className="h-8 w-8 text-muted-foreground" />
+                        <p className="text-muted-foreground">No residents found</p>
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredResidents?.map((resident) => (
                     <TableRow key={resident.id}>
-                      {columns.map((column) => (
-                        <TableCell key={column.header}>
-                          {column.cell ? column.cell({ row: { original: resident, getValue: (key: string) => resident[key as keyof typeof resident] } }) :
-                            resident[column.accessorKey as keyof typeof resident] || '-'}
-                        </TableCell>
-                      ))}
+                      {/* Resident Info */}
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={resident.avatar_url} />
+                            <AvatarFallback className="bg-primary text-primary-foreground">
+                              {resident.full_name?.[0]?.toUpperCase() || <User className="h-5 w-5" />}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium text-sm">{resident.full_name || 'Unknown'}</p>
+                            <p className="text-xs text-muted-foreground">{resident.email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+
+                      {/* Phone */}
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          <span>{resident.phone || '-'}</span>
+                        </div>
+                      </TableCell>
+
+                      {/* Building */}
+                      <TableCell>
+                        {resident.unit?.building_id ? (
+                          <Badge variant="outline" className="gap-1">
+                            <Building2 className="h-3 w-3" />
+                            {getBuildingName(resident.unit.building_id)}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+
+                      {/* Wing */}
+                      <TableCell>
+                        {resident.unit?.wing_id ? (
+                          <Badge variant="outline">
+                            {getWingName(resident.unit.wing_id)}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+
+                      {/* Unit */}
+                      <TableCell>
+                        {resident.unit ? (
+                          <Badge variant="secondary" className="gap-1">
+                            <Home className="h-3 w-3" />
+                            {resident.unit.block}-{resident.unit.unit_number}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">
+                            Unassigned
+                          </Badge>
+                        )}
+                      </TableCell>
+
+                      {/* Status */}
+                      <TableCell>
+                        {resident.unit ? (
+                          <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground">
+                            Pending
+                          </Badge>
+                        )}
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {!resident.unit && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => openAssignDialog(resident)}
+                            >
+                              <Home className="mr-2 h-3 w-3" />
+                              Assign Unit
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline">
+                            <Edit className="mr-2 h-3 w-3" />
+                            Edit
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -370,51 +425,129 @@ export default function Residents() {
 
       {/* Assign Unit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Assign Unit to Resident</DialogTitle>
             <DialogDescription>
-              Select a unit to assign to {selectedResident?.full_name || selectedResident?.email}
+              Select building, wing, and unit to assign to {selectedResident?.full_name || selectedResident?.email}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleAssignUnit)} className="space-y-4">
+              {/* Resident Info */}
               <div className="space-y-2">
                 <FormLabel>Resident</FormLabel>
-                <div className="flex items-center gap-3 p-3 border rounded-md">
+                <div className="flex items-center gap-3 p-3 border rounded-md bg-muted/50">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={selectedResident?.avatar_url} />
-                    <AvatarFallback className="bg-[#2d9676] text-white">
+                    <AvatarFallback className="bg-primary text-primary-foreground">
                       {selectedResident?.full_name?.[0]?.toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <p className="font-medium text-sm">{selectedResident?.full_name || 'Unknown'}</p>
-                    <p className="text-xs text-gray-500">{selectedResident?.email}</p>
+                    <p className="text-xs text-muted-foreground">{selectedResident?.email}</p>
                   </div>
                 </div>
               </div>
 
+              {/* Building Selection */}
+              <FormField
+                control={form.control}
+                name="buildingId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Building *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a building" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {buildings?.map(building => (
+                          <SelectItem key={building.id} value={building.id}>
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4" />
+                              {building.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Wing Selection */}
+              <FormField
+                control={form.control}
+                name="wingId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Wing *</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      disabled={!selectedBuildingId}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={selectedBuildingId ? "Select a wing" : "Select a building first"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {filteredWings.length === 0 ? (
+                          <SelectItem value="no-wings" disabled>
+                            No wings available
+                          </SelectItem>
+                        ) : (
+                          filteredWings.map(wing => (
+                            <SelectItem key={wing.id} value={wing.id}>
+                              {wing.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Unit Selection */}
               <FormField
                 control={form.control}
                 name="unitId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Select Unit *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel>Unit *</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      disabled={!selectedWingId}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose a unit" />
+                          <SelectValue placeholder={selectedWingId ? "Select a unit" : "Select a wing first"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {units
-                          ?.filter(u => !u.owner_id)
-                          .map(u => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.block}-{u.unit_number}
+                        {filteredUnits.length === 0 ? (
+                          <SelectItem value="no-units" disabled>
+                            No available units
+                          </SelectItem>
+                        ) : (
+                          filteredUnits.map(unit => (
+                            <SelectItem key={unit.id} value={unit.id}>
+                              <div className="flex items-center gap-2">
+                                <Home className="h-4 w-4" />
+                                {unit.block}-{unit.unit_number}
+                              </div>
                             </SelectItem>
-                          ))}
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -423,6 +556,9 @@ export default function Residents() {
               />
 
               <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
                 <Button type="submit">Assign Unit</Button>
               </DialogFooter>
             </form>
