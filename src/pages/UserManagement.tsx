@@ -42,27 +42,49 @@ export default function UserManagement() {
   const [newUserPhone, setNewUserPhone] = useState("");
   const [newUserRole, setNewUserRole] = useState<"resident" | "gatekeeper">("resident");
 
-  // Fetch all users with their roles
+  // Fetch users assigned to units (within the society scope)
   const { data: users, isLoading, refetch } = useQuery({
     queryKey: ["users-with-roles"],
     queryFn: async () => {
-      // First get all profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, email, full_name, phone, created_at")
-        .order("created_at", { ascending: false });
+      // Get units with owner_id or resident_id to find users in the system
+      const { data: units, error: unitsError } = await supabase
+        .from("units")
+        .select("owner_id, resident_id");
 
-      if (profilesError) throw profilesError;
+      if (unitsError) throw unitsError;
 
-      // Then get all roles
+      // Collect unique user IDs from units
+      const unitUserIds = new Set<string>();
+      units?.forEach(unit => {
+        if (unit.owner_id) unitUserIds.add(unit.owner_id);
+        if (unit.resident_id) unitUserIds.add(unit.resident_id);
+      });
+
+      // Get all roles to find admin users as well
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("user_id, role");
 
       if (rolesError) throw rolesError;
 
-      // Map roles to users
+      // Create role map and collect admin user IDs
       const roleMap = new Map(roles?.map(r => [r.user_id, r.role]) || []);
+      
+      // Get profiles for users who are either assigned to units OR are admins
+      const adminUserIds = roles?.filter(r => r.role === 'admin').map(r => r.user_id) || [];
+      const allRelevantUserIds = [...new Set([...unitUserIds, ...adminUserIds])];
+
+      if (allRelevantUserIds.length === 0) {
+        return [];
+      }
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, phone, created_at")
+        .in("id", allRelevantUserIds)
+        .order("created_at", { ascending: false });
+
+      if (profilesError) throw profilesError;
 
       return profiles?.map(profile => ({
         ...profile,
