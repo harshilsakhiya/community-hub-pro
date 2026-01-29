@@ -20,7 +20,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login, isAuthenticated, loading } = useAuth();
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -35,7 +35,7 @@ export default function Auth() {
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
-  
+
   const [otpValue, setOtpValue] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
 
@@ -71,7 +71,7 @@ export default function Auth() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
       await login(loginEmail, loginPassword);
       toast({
@@ -96,7 +96,7 @@ export default function Auth() {
 
     try {
       const formattedPhone = formatPhoneNumber(signupPhone);
-      
+
       // First, sign up with email/password
       const { data, error: signupError } = await supabase.auth.signUp({
         email: signupEmail,
@@ -116,7 +116,7 @@ export default function Auth() {
       if (data.user) {
         // Wait for the trigger to create default role, then update
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         const { error: roleError } = await supabase
           .from("user_roles")
           .update({ role: "admin" })
@@ -170,11 +170,11 @@ export default function Auth() {
 
   const handleVerifyOTP = async () => {
     if (otpValue.length !== 6) return;
-    
+
     setIsLoading(true);
     try {
       const formattedPhone = formatPhoneNumber(signupPhone);
-      
+
       const { error } = await supabase.auth.verifyOtp({
         phone: formattedPhone,
         token: otpValue,
@@ -210,11 +210,11 @@ export default function Auth() {
 
   const handleResendOTP = async () => {
     if (resendTimer > 0) return;
-    
+
     setIsLoading(true);
     try {
       const formattedPhone = formatPhoneNumber(signupPhone);
-      
+
       const { error } = await supabase.auth.signInWithOtp({
         phone: formattedPhone,
       });
@@ -548,7 +548,7 @@ export default function Auth() {
           <div className="absolute top-20 left-10 w-72 h-72 bg-accent/20 rounded-full blur-3xl" />
           <div className="absolute bottom-20 right-10 w-96 h-96 bg-primary-foreground/10 rounded-full blur-3xl" />
         </div>
-        
+
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}

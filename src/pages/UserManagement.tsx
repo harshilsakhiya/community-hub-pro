@@ -29,12 +29,12 @@ export default function UserManagement() {
   const { user, isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
-  
+
   // Form state
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
@@ -63,7 +63,7 @@ export default function UserManagement() {
 
       // Map roles to users
       const roleMap = new Map(roles?.map(r => [r.user_id, r.role]) || []);
-      
+
       return profiles?.map(profile => ({
         ...profile,
         role: (roleMap.get(profile.id) || "resident") as UserRole,
@@ -159,7 +159,7 @@ export default function UserManagement() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newUserEmail || !newUserPassword || !newUserFullName) {
       toast({
         variant: "destructive",
@@ -188,7 +188,7 @@ export default function UserManagement() {
   };
 
   const filteredUsers = users?.filter(u => {
-    const matchesSearch = 
+    const matchesSearch =
       u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.full_name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = roleFilter === "all" || u.role === roleFilter;
